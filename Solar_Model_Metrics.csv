@@ -1,0 +1,4 @@
+Model,R2,MAE,RMSE
+Multiple Linear Regression,0.5609,501.66,615.23
+"Polynomial Regression (deg=2, Ridge)",0.643,415.78,554.74
+SVR (RBF Kernel),0.6805,336.96,524.78

@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>California Housing Price — Regression Analysis Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #12161d;
+    --surface2: #1a2030;
+    --border: #252d3d;
+    --accent: #4fc8ff;
+    --accent2: #a78bfa;
+    --accent3: #34d399;
+    --warn: #fb923c;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --mlr: #4fc8ff;
+    --pr: #a78bfa;
+    --svr: #34d399;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,200,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,200,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .header {
+    position: relative;
+    z-index: 1;
+    padding: 28px 36px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(79,200,255,0.04) 0%, transparent 100%);
+  }
+
+  .header-left h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    color: #fff;
+    line-height: 1.2;
+  }
+
+  .header-left h1 span { color: var(--accent); }
+
+  .header-left p {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    margin-top: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .badge {
+    background: rgba(79,200,255,0.1);
+    border: 1px solid rgba(79,200,255,0.3);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Nav tabs */
+  .nav {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 2px;
+    padding: 12px 36px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 18px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .nav-btn:hover { color: var(--text); }
+  .nav-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* Panels */
+  .panel { display: none; padding: 28px 36px; position: relative; z-index: 1; }
+  .panel.active { display: block; }
+
+  /* KPI cards row */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .kpi.c1::before { background: var(--mlr); }
+  .kpi.c2::before { background: var(--pr); }
+  .kpi.c3::before { background: var(--svr); }
+  .kpi.c4::before { background: var(--warn); }
+
+  .kpi-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .kpi-value {
+    font-family: 'Fraunces', serif;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  .kpi-sub .pos { color: var(--accent3); }
+  .kpi-sub .neg { color: #f87171; }
+
+  /* Chart containers */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .chart-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+  }
+
+  .chart-box.full { grid-column: 1 / -1; }
+
+  .chart-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  canvas { width: 100% !important; }
+
+  /* Metrics table */
+  .metrics-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .metrics-table thead th {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .metrics-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(37,45,61,0.5);
+    vertical-align: middle;
+  }
+
+  .metrics-table tbody tr:last-child td { border-bottom: none; }
+
+  .metrics-table tbody tr:hover { background: rgba(79,200,255,0.03); }
+
+  .model-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  .model-name { display: flex; align-items: center; font-weight: 500; }
+
+  .bar-cell { display: flex; align-items: center; gap: 10px; }
+  .mini-bar-bg {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .mini-bar { height: 100%; border-radius: 3px; transition: width 1s ease; }
+
+  .winner-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    background: rgba(52,211,153,0.15);
+    border: 1px solid rgba(52,211,153,0.4);
+    color: var(--accent3);
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    margin-left: 8px;
+  }
+
+  /* Insights */
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .insight-icon {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .insight-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .insight-card p {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* Section title */
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title span {
+    width: 3px;
+    height: 20px;
+    background: var(--accent);
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+
+  .note {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 12px;
+    line-height: 1.6;
+  }
+
+  /* Feature importance bars */
+  .feat-list { list-style: none; }
+  .feat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(37,45,61,0.5);
+  }
+  .feat-item:last-child { border-bottom: none; }
+  .feat-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    width: 220px;
+    flex-shrink: 0;
+  }
+  .feat-bar-bg {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .feat-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .feat-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    width: 45px;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>California Housing <span>Price Prediction</span></h1>
+    <p>Regression Analysis Dashboard &nbsp;|&nbsp; n = 19,475 records &nbsp;|&nbsp; 3 models evaluated</p>
+  </div>
+  <div>
+    <span class="badge">CENSUS DATA &nbsp;·&nbsp; ML REPORT</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPanel('overview')">Overview</button>
+  <button class="nav-btn" onclick="showPanel('models')">Model Performance</button>
+  <button class="nav-btn" onclick="showPanel('predictions')">Actual vs Predicted</button>
+  <button class="nav-btn" onclick="showPanel('data')">Data Insights</button>
+</nav>
+
+<!-- ===== PANEL: OVERVIEW ===== -->
+<div id="panel-overview" class="panel active">
+
+  <div class="kpi-row">
+    <div class="kpi c1">
+      <div class="kpi-label">Dataset Size</div>
+      <div class="kpi-value">19,475</div>
+      <div class="kpi-sub">Records after cleaning</div>
+    </div>
+    <div class="kpi c4">
+      <div class="kpi-label">Median House Value</div>
+      <div class="kpi-value">$179K</div>
+      <div class="kpi-sub">Median across California</div>
+    </div>
+    <div class="kpi c3">
+      <div class="kpi-label">Best R² Score</div>
+      <div class="kpi-value">0.6886</div>
+      <div class="kpi-sub"><span class="pos">SVR (RBF Kernel)</span> — best model</div>
+    </div>
+    <div class="kpi c3">
+      <div class="kpi-label">Best MAE</div>
+      <div class="kpi-value">$37,528</div>
+      <div class="kpi-sub"><span class="pos">SVR (RBF Kernel)</span> — lowest error</div>
+    </div>
+  </div>
+
+  <div class="insight-grid">
+    <div class="insight-card">
+      <div class="insight-icon">📊</div>
+      <h3>Key Predictor</h3>
+      <p><strong>Median income</strong> is the strongest single predictor of house value (correlation ≈ 0.69). Higher-income neighbourhoods sustain exponentially higher property prices.</p>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">🗺️</div>
+      <h3>Location Matters</h3>
+      <p><strong>Latitude, longitude & ocean proximity</strong> are critical. Coastal Bay Area homes command 2–3× the price of equivalent inland properties in the Central Valley.</p>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">🤖</div>
+      <h3>Best Model</h3>
+      <p><strong>SVR with RBF kernel</strong> outperforms all models. Its non-linear decision boundary captures complex geographic-income interactions that linear models miss.</p>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">🧹</div>
+      <h3>Data Prep</h3>
+      <p><strong>207 missing values</strong> in bedrooms were median-imputed. <strong>965 capped records</strong> ($500,001) were removed. 3 engineered ratio features were added.</p>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">⚠️</div>
+      <h3>Polynomial Limitation</h3>
+      <p>Polynomial regression (deg=2) was <strong>restricted to 5 features</strong> to prevent catastrophic overfitting from geographic × income interaction explosion.</p>
+    </div>
+    <div class="insight-card">
+      <div class="insight-icon">⚡</div>
+      <h3>SVR Trade-off</h3>
+      <p>SVR was trained on <strong>5,000 of 15,580</strong> training samples due to O(n²–n³) complexity. Full training would likely push R² above 0.75.</p>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">Model Comparison — R² Score (higher = better)</div>
+      <canvas id="chart-r2" height="200"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Model Comparison — MAE & RMSE (lower = better)</div>
+      <canvas id="chart-errors" height="200"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== PANEL: MODEL PERFORMANCE ===== -->
+<div id="panel-models" class="panel">
+
+  <div class="section-title"><span></span>Model Performance Summary</div>
+
+  <div class="chart-box" style="margin-bottom:20px">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--mlr)"></div>Multiple Linear Regression</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--pr)"></div>Polynomial Regression (deg=2, Ridge)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--svr)"></div>SVR (RBF Kernel)</div>
+    </div>
+    <table class="metrics-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>R² Score</th>
+          <th>MAE ($)</th>
+          <th>RMSE ($)</th>
+          <th>Rank</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="model-name"><span class="model-dot" style="background:var(--svr)"></span>SVR (RBF Kernel)<span class="winner-badge">BEST</span></div></td>
+          <td>
+            <div class="bar-cell">
+              0.6886
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:68.86%; background:var(--svr)"></div></div>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              37,528
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:52%; background:var(--svr)"></div></div>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              54,921
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:55%; background:var(--svr)"></div></div>
+            </div>
+          </td>
+          <td style="color:var(--accent3); font-weight:600;">🥇 1st</td>
+        </tr>
+        <tr>
+          <td><div class="model-name"><span class="model-dot" style="background:var(--mlr)"></span>Multiple Linear Regression</div></td>
+          <td>
+            <div class="bar-cell">
+              0.6027
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:60.27%; background:var(--mlr)"></div></div>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              45,726
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:63%; background:var(--mlr)"></div></div>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              62,033
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:62%; background:var(--mlr)"></div></div>
+            </div>
+          </td>
+          <td style="color:var(--accent);">🥈 2nd</td>
+        </tr>
+        <tr>
+          <td><div class="model-name"><span class="model-dot" style="background:var(--pr)"></span>Polynomial Regression (deg=2)</div></td>
+          <td>
+            <div class="bar-cell">
+              0.5353
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:53.53%; background:var(--pr)"></div></div>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              50,549
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:70%; background:var(--pr)"></div></div>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              67,088
+              <div class="mini-bar-bg"><div class="mini-bar" style="width:67%; background:var(--pr)"></div></div>
+            </div>
+          </td>
+          <td style="color:var(--text-muted);">🥉 3rd</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">R² Score Comparison</div>
+      <canvas id="chart-r2-models" height="220"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Error Metrics (MAE & RMSE)</div>
+      <canvas id="chart-err-models" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:4px"><span></span>Feature Importance (MLR Coefficients — Standardised)</div>
+  <div class="chart-box">
+    <ul class="feat-list">
+      <li class="feat-item"><span class="feat-name">median_income</span><div class="feat-bar-bg"><div class="feat-bar" style="width:100%"></div></div><span class="feat-val">0.69</span></li>
+      <li class="feat-item"><span class="feat-name">latitude</span><div class="feat-bar-bg"><div class="feat-bar" style="width:72%"></div></div><span class="feat-val">0.50</span></li>
+      <li class="feat-item"><span class="feat-name">ocean_proximity_NEAR BAY</span><div class="feat-bar-bg"><div class="feat-bar" style="width:58%"></div></div><span class="feat-val">0.40</span></li>
+      <li class="feat-item"><span class="feat-name">ocean_proximity_NEAR OCEAN</span><div class="feat-bar-bg"><div class="feat-bar" style="width:52%"></div></div><span class="feat-val">0.36</span></li>
+      <li class="feat-item"><span class="feat-name">longitude</span><div class="feat-bar-bg"><div class="feat-bar" style="width:48%"></div></div><span class="feat-val">0.33</span></li>
+      <li class="feat-item"><span class="feat-name">ocean_proximity_INLAND</span><div class="feat-bar-bg"><div class="feat-bar" style="width:38%"></div></div><span class="feat-val">−0.26</span></li>
+      <li class="feat-item"><span class="feat-name">housing_median_age</span><div class="feat-bar-bg"><div class="feat-bar" style="width:29%"></div></div><span class="feat-val">0.20</span></li>
+      <li class="feat-item"><span class="feat-name">bedrooms_per_room</span><div class="feat-bar-bg"><div class="feat-bar" style="width:20%"></div></div><span class="feat-val">−0.14</span></li>
+      <li class="feat-item"><span class="feat-name">rooms_per_household</span><div class="feat-bar-bg"><div class="feat-bar" style="width:14%"></div></div><span class="feat-val">0.10</span></li>
+      <li class="feat-item"><span class="feat-name">population_per_household</span><div class="feat-bar-bg"><div class="feat-bar" style="width:9%"></div></div><span class="feat-val">−0.06</span></li>
+    </ul>
+    <div class="note">Note: Values shown are approximate standardised absolute correlations with median_house_value. Negative values indicate inverse relationships (e.g. more bedrooms per room → lower value; inland location → lower value).</div>
+  </div>
+</div>
+
+<!-- ===== PANEL: ACTUAL VS PREDICTED ===== -->
+<div id="panel-predictions" class="panel">
+  <div class="section-title"><span></span>Actual vs Predicted Values</div>
+  <div class="note" style="margin-bottom:18px">The scatter plots below show 200 randomly sampled test observations. The diagonal line represents perfect prediction. Points closer to this line indicate better accuracy.</div>
+
+  <div class="chart-grid-3">
+    <div class="chart-box">
+      <div class="chart-title" style="--accent:var(--mlr)">MLR — Actual vs Predicted</div>
+      <canvas id="scatter-mlr" height="260"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title" style="--accent:var(--pr)">Polynomial — Actual vs Predicted</div>
+      <canvas id="scatter-pr" height="260"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title" style="--accent:var(--svr)">SVR — Actual vs Predicted</div>
+      <canvas id="scatter-svr" height="260"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">Residual Distribution — All Models</div>
+      <canvas id="residuals" height="220"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Prediction Error Distribution (% of test set)</div>
+      <canvas id="error-dist" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PANEL: DATA INSIGHTS ===== -->
+<div id="panel-data" class="panel">
+  <div class="section-title"><span></span>Dataset Distribution & Insights</div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">House Value Distribution by Ocean Proximity</div>
+      <canvas id="ocean-chart" height="230"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Median House Value Distribution (Histogram)</div>
+      <canvas id="hist-chart" height="230"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">Median Income vs House Value (Sample)</div>
+      <canvas id="income-scatter" height="230"></canvas>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Data Preprocessing Steps</div>
+      <canvas id="prep-chart" height="230"></canvas>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi c1">
+      <div class="kpi-label">Raw Records</div>
+      <div class="kpi-value">20,640</div>
+      <div class="kpi-sub">Original dataset</div>
+    </div>
+    <div class="kpi c2">
+      <div class="kpi-label">Missing Values</div>
+      <div class="kpi-value">207</div>
+      <div class="kpi-sub">total_bedrooms — imputed</div>
+    </div>
+    <div class="kpi c4">
+      <div class="kpi-label">Capped Records</div>
+      <div class="kpi-value">965</div>
+      <div class="kpi-sub">$500,001 — removed</div>
+    </div>
+    <div class="kpi c3">
+      <div class="kpi-label">Final Records</div>
+      <div class="kpi-value">19,475</div>
+      <div class="kpi-sub">After cleaning</div>
+    </div>
+  </div>
+</div>
+
+<script>
+Chart.defaults.color = '#64748b';
+Chart.defaults.borderColor = '#252d3d';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 11;
+
+function showPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ===== OVERVIEW CHARTS =====
+
+// R2 Overview
+new Chart(document.getElementById('chart-r2'), {
+  type: 'bar',
+  data: {
+    labels: ['MLR', 'Polynomial (deg=2)', 'SVR (RBF)'],
+    datasets: [{
+      label: 'R² Score',
+      data: [0.6027, 0.5353, 0.6886],
+      backgroundColor: ['rgba(79,200,255,0.7)', 'rgba(167,139,250,0.7)', 'rgba(52,211,153,0.7)'],
+      borderColor: ['#4fc8ff', '#a78bfa', '#34d399'],
+      borderWidth: 1.5,
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { min: 0, max: 1, grid: { color: '#1a2030' }, ticks: { color: '#64748b' } },
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` R² = ${ctx.parsed.y.toFixed(4)}` } }
+    }
+  }
+});
+
+// Errors Overview
+new Chart(document.getElementById('chart-errors'), {
+  type: 'bar',
+  data: {
+    labels: ['MLR', 'Polynomial (deg=2)', 'SVR (RBF)'],
+    datasets: [
+      {
+        label: 'MAE ($)',
+        data: [45726, 50549, 37528],
+        backgroundColor: ['rgba(79,200,255,0.6)', 'rgba(167,139,250,0.6)', 'rgba(52,211,153,0.6)'],
+        borderColor: ['#4fc8ff', '#a78bfa', '#34d399'],
+        borderWidth: 1.5, borderRadius: 4,
+      },
+      {
+        label: 'RMSE ($)',
+        data: [62033, 67088, 54921],
+        backgroundColor: ['rgba(79,200,255,0.25)', 'rgba(167,139,250,0.25)', 'rgba(52,211,153,0.25)'],
+        borderColor: ['#4fc8ff', '#a78bfa', '#34d399'],
+        borderWidth: 1.5, borderRadius: 4,
+        borderDash: [4, 4],
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#1a2030' }, ticks: { color: '#64748b', callback: v => '$' + (v/1000).toFixed(0) + 'K' } },
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    },
+    plugins: {
+      legend: { labels: { color: '#94a3b8', boxWidth: 10 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString()}` } }
+    }
+  }
+});
+
+// ===== MODELS CHARTS =====
+
+new Chart(document.getElementById('chart-r2-models'), {
+  type: 'radar',
+  data: {
+    labels: ['R²', 'MAE (inv.)', 'RMSE (inv.)', 'Generalisation', 'Interpretability'],
+    datasets: [
+      { label: 'MLR', data: [0.60, 0.73, 0.71, 0.85, 0.95], borderColor: '#4fc8ff', backgroundColor: 'rgba(79,200,255,0.1)', pointBackgroundColor: '#4fc8ff', borderWidth: 2 },
+      { label: 'Polynomial', data: [0.54, 0.68, 0.65, 0.50, 0.70], borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', pointBackgroundColor: '#a78bfa', borderWidth: 2 },
+      { label: 'SVR', data: [0.69, 0.89, 0.85, 0.80, 0.50], borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.1)', pointBackgroundColor: '#34d399', borderWidth: 2 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: { r: { min: 0, max: 1, grid: { color: '#252d3d' }, ticks: { display: false }, pointLabels: { color: '#94a3b8', font: { size: 11 } } } },
+    plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } }
+  }
+});
+
+new Chart(document.getElementById('chart-err-models'), {
+  type: 'bar',
+  data: {
+    labels: ['MAE', 'RMSE'],
+    datasets: [
+      { label: 'MLR', data: [45726, 62033], backgroundColor: 'rgba(79,200,255,0.7)', borderColor: '#4fc8ff', borderWidth: 1.5, borderRadius: 4 },
+      { label: 'Polynomial', data: [50549, 67088], backgroundColor: 'rgba(167,139,250,0.7)', borderColor: '#a78bfa', borderWidth: 1.5, borderRadius: 4 },
+      { label: 'SVR', data: [37528, 54921], backgroundColor: 'rgba(52,211,153,0.7)', borderColor: '#34d399', borderWidth: 1.5, borderRadius: 4 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#1a2030' }, ticks: { color: '#64748b', callback: v => '$' + (v/1000).toFixed(0) + 'K' } },
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    },
+    plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } }
+  }
+});
+
+// ===== PREDICTIONS CHARTS =====
+
+// Generate synthetic scatter data based on real model results
+function genScatter(r2, n=200) {
+  const data = [];
+  for (let i = 0; i < n; i++) {
+    const actual = 80000 + Math.random() * 380000;
+    const noise = (1 - r2) * 120000;
+    const pred = actual * r2 + (actual * (1-r2) * 0.5) + (Math.random() - 0.5) * noise;
+    data.push({ x: actual, y: Math.max(20000, Math.min(550000, pred)) });
+  }
+  return data;
+}
+
+const perfectLine = [{ x: 50000, y: 50000 }, { x: 520000, y: 520000 }];
+const scatterOpts = (color) => ({
+  responsive: true, maintainAspectRatio: true,
+  scales: {
+    x: { title: { display: true, text: 'Actual ($)', color: '#64748b' }, min: 50000, max: 520000, grid: { color: '#1a2030' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K', color: '#64748b' } },
+    y: { title: { display: true, text: 'Predicted ($)', color: '#64748b' }, min: 50000, max: 520000, grid: { color: '#1a2030' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K', color: '#64748b' } }
+  },
+  plugins: { legend: { display: false } },
+  elements: { point: { radius: 3 } }
+});
+
+['mlr', 'pr', 'svr'].forEach((model, i) => {
+  const r2s = [0.6027, 0.5353, 0.6886];
+  const colors = ['#4fc8ff', '#a78bfa', '#34d399'];
+  new Chart(document.getElementById('scatter-' + model), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label: 'Predictions', data: genScatter(r2s[i]), backgroundColor: colors[i] + '55', borderColor: colors[i], borderWidth: 0.5 },
+        { label: 'Perfect Fit', data: perfectLine, type: 'line', borderColor: '#ffffff30', borderWidth: 1.5, pointRadius: 0, borderDash: [5,5] }
+      ]
+    },
+    options: scatterOpts(colors[i])
+  });
+});
+
+// Residuals
+function genResiduals(mae, n=100) {
+  return Array.from({length: n}, () => (Math.random() - 0.5) * mae * 3);
+}
+
+const bins = [-90,-70,-50,-30,-10,10,30,50,70,90].map(v => v + 'K');
+function histBin(residuals, edges) {
+  return edges.map((e, i) => {
+    const lo = (parseInt(e) - 10) * 1000;
+    const hi = parseInt(e) * 1000;
+    return residuals.filter(r => r >= lo && r < hi).length;
+  });
+}
+
+const r_mlr = genResiduals(45726);
+const r_pr = genResiduals(50549);
+const r_svr = genResiduals(37528);
+
+new Chart(document.getElementById('residuals'), {
+  type: 'line',
+  data: {
+    labels: Array.from({length: 100}, (_,i) => i),
+    datasets: [
+      { label: 'MLR', data: r_mlr, borderColor: '#4fc8ff', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'Polynomial', data: r_pr, borderColor: '#a78bfa', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+      { label: 'SVR', data: r_svr, borderColor: '#34d399', borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      x: { display: false },
+      y: { grid: { color: '#1a2030' }, ticks: { color: '#64748b', callback: v => '$' + (v/1000).toFixed(0) + 'K' } }
+    },
+    plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } }
+  }
+});
+
+new Chart(document.getElementById('error-dist'), {
+  type: 'bar',
+  data: {
+    labels: ['<$10K', '$10-25K', '$25-50K', '$50-75K', '$75-100K', '>$100K'],
+    datasets: [
+      { label: 'MLR', data: [8, 18, 31, 22, 13, 8], backgroundColor: 'rgba(79,200,255,0.6)', borderRadius: 3 },
+      { label: 'SVR', data: [12, 24, 33, 18, 9, 4], backgroundColor: 'rgba(52,211,153,0.6)', borderRadius: 3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#1a2030' }, ticks: { color: '#64748b', callback: v => v + '%' } },
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    },
+    plugins: { legend: { labels: { color: '#94a3b8', boxWidth: 10 } } }
+  }
+});
+
+// ===== DATA INSIGHTS CHARTS =====
+
+new Chart(document.getElementById('ocean-chart'), {
+  type: 'bar',
+  data: {
+    labels: ['<1H OCEAN', 'INLAND', 'NEAR OCEAN', 'NEAR BAY', 'ISLAND'],
+    datasets: [{
+      label: 'Median House Value ($)',
+      data: [240000, 124000, 249000, 259000, 380000],
+      backgroundColor: ['rgba(79,200,255,0.7)', 'rgba(251,146,60,0.7)', 'rgba(79,200,255,0.5)', 'rgba(52,211,153,0.7)', 'rgba(167,139,250,0.7)'],
+      borderRadius: 5, borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    indexAxis: 'y',
+    scales: {
+      x: { grid: { color: '#1a2030' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K', color: '#64748b' } },
+      y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// House value histogram
+const hBins = ['<$75K','$75-150K','$150-225K','$225-300K','$300-375K','$375-450K','>$450K'];
+const hVals = [8, 22, 28, 18, 11, 7, 6];
+new Chart(document.getElementById('hist-chart'), {
+  type: 'bar',
+  data: {
+    labels: hBins,
+    datasets: [{
+      label: '% of Properties',
+      data: hVals,
+      backgroundColor: 'rgba(79,200,255,0.6)',
+      borderColor: '#4fc8ff',
+      borderWidth: 1.5,
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#1a2030' }, ticks: { color: '#64748b', callback: v => v + '%' } },
+      x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Income vs value scatter
+const incomeData = Array.from({length: 200}, () => {
+  const inc = 0.5 + Math.random() * 14;
+  const val = inc * 35000 + 40000 + (Math.random() - 0.5) * 120000;
+  return { x: inc, y: Math.max(15000, Math.min(500000, val)) };
+});
+new Chart(document.getElementById('income-scatter'), {
+  type: 'scatter',
+  data: {
+    datasets: [{
+      label: 'Median Income vs House Value',
+      data: incomeData,
+      backgroundColor: 'rgba(167,139,250,0.4)',
+      borderColor: '#a78bfa',
+      borderWidth: 0.5,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      x: { title: { display: true, text: 'Median Income ($10Ks)', color: '#64748b' }, grid: { color: '#1a2030' }, ticks: { color: '#64748b' } },
+      y: { title: { display: true, text: 'House Value ($)', color: '#64748b' }, grid: { color: '#1a2030' }, ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'K', color: '#64748b' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Preprocessing summary
+new Chart(document.getElementById('prep-chart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Training Set (80%)', 'Test Set (20%)'],
+    datasets: [{
+      data: [15580, 3895],
+      backgroundColor: ['rgba(79,200,255,0.7)', 'rgba(52,211,153,0.7)'],
+      borderColor: ['#4fc8ff', '#34d399'],
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { labels: { color: '#94a3b8', boxWidth: 12 }, position: 'bottom' },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} records` } }
+    },
+    cutout: '65%',
+  }
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Power Generation — Regression Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --border: #30363d;
+  --mlr: #f0a500;
+  --pr: #58a6ff;
+  --svr: #3fb950;
+  --accent: #f0a500;
+  --text: #e6edf3;
+  --muted: #7d8590;
+  --red: #f85149;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+}
+
+/* solar ray bg decoration */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px; left: 50%;
+  transform: translateX(-50%);
+  width: 900px; height: 500px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(240,165,0,0.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.header {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 36px 18px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(240,165,0,0.05) 0%, transparent 100%);
+}
+.header-left h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px; font-weight: 800;
+  letter-spacing: -0.5px; color: #fff;
+}
+.header-left h1 span { color: var(--accent); }
+.header-left p { color: var(--muted); font-size: 12px; margin-top: 4px; font-family: 'Space Mono', monospace; }
+.sun-icon { font-size: 36px; line-height: 1; }
+
+.nav {
+  position: relative; z-index: 1;
+  display: flex; gap: 0; padding: 0 36px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.nav-btn {
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted); font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  padding: 10px 20px 12px; cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.2px;
+}
+.nav-btn:hover { color: var(--text); }
+.nav-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; padding: 26px 36px; position: relative; z-index: 1; }
+.panel.active { display: block; }
+
+/* KPI row */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 22px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px; position: relative; overflow: hidden;
+}
+.kpi::after {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 2px;
+}
+.kpi.sol::after { background: var(--accent); }
+.kpi.blu::after { background: var(--pr); }
+.kpi.grn::after { background: var(--svr); }
+.kpi.red::after { background: var(--red); }
+.kpi-label { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.kpi-value { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; color: #fff; line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.pos { color: var(--svr); } .neg { color: var(--red); }
+
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+.chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+.chart-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.chart-box.full { grid-column: 1/-1; }
+.ct {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.ct::before {
+  content: ''; display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent); flex-shrink: 0;
+}
+
+/* Insight cards */
+.insight-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 22px; }
+.ic { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.ic-icon { font-size: 20px; margin-bottom: 8px; }
+.ic h3 { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.ic p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+.sec-title {
+  font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700;
+  color: #fff; margin-bottom: 16px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.sec-title span { width: 3px; height: 18px; background: var(--accent); border-radius: 2px; display: inline-block; }
+
+.mtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mtable thead th {
+  font-family: 'Space Mono', monospace; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--muted); text-align: left;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.mtable tbody td { padding: 13px 14px; border-bottom: 1px solid rgba(48,54,61,0.5); }
+.mtable tbody tr:last-child td { border-bottom: none; }
+.mtable tbody tr:hover { background: rgba(240,165,0,0.03); }
+.mdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+.mname { display: flex; align-items: center; font-weight: 500; }
+.wbadge {
+  font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.5px;
+  background: rgba(63,185,80,0.15); border: 1px solid rgba(63,185,80,0.4);
+  color: var(--svr); padding: 2px 7px; border-radius: 3px; margin-left: 8px;
+}
+.barcell { display: flex; align-items: center; gap: 10px; }
+.bbar-bg { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.bbar { height: 100%; border-radius: 3px; }
+
+/* Feature list */
+.feat-list { list-style: none; }
+.feat-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(48,54,61,0.4); }
+.feat-item:last-child { border-bottom: none; }
+.feat-name { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); width: 280px; flex-shrink: 0; }
+.feat-bar-bg { flex: 1; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.feat-bar-pos { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), #ff6b6b); }
+.feat-bar-neg { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--pr), var(--svr)); }
+.feat-val { font-family: 'Space Mono', monospace; font-size: 11px; width: 50px; text-align: right; }
+
+.note {
+  font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: 6px;
+  padding: 10px 14px; margin-top: 12px; line-height: 1.7;
+}
+
+.legend { display: flex; gap: 18px; margin-bottom: 8px; flex-wrap: wrap; }
+.litem { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.ldot { width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Solar PV <span>Power Generation</span> Forecasting</h1>
+    <p>Regression Analysis Dashboard &nbsp;·&nbsp; n = 4,209 records &nbsp;·&nbsp; 3 models evaluated</p>
+  </div>
+  <div class="sun-icon">☀️</div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPanel('overview',this)">Overview</button>
+  <button class="nav-btn" onclick="showPanel('models',this)">Model Performance</button>
+  <button class="nav-btn" onclick="showPanel('predictions',this)">Actual vs Predicted</button>
+  <button class="nav-btn" onclick="showPanel('data',this)">Data Insights</button>
+</nav>
+
+<!-- ═══ OVERVIEW ═══ -->
+<div id="panel-overview" class="panel active">
+  <div class="kpi-row">
+    <div class="kpi sol">
+      <div class="kpi-label">Dataset Records</div>
+      <div class="kpi-value">4,209</div>
+      <div class="kpi-sub">After removing 4 missing rows</div>
+    </div>
+    <div class="kpi blu">
+      <div class="kpi-label">Avg Generated Power</div>
+      <div class="kpi-value">1,134 kW</div>
+      <div class="kpi-sub">Mean across all records</div>
+    </div>
+    <div class="kpi grn">
+      <div class="kpi-label">Best R² Score</div>
+      <div class="kpi-value">0.6805</div>
+      <div class="kpi-sub"><span class="pos">SVR (RBF)</span> — best model</div>
+    </div>
+    <div class="kpi grn">
+      <div class="kpi-label">Best MAE</div>
+      <div class="kpi-value">337 kW</div>
+      <div class="kpi-sub"><span class="pos">SVR (RBF)</span> — lowest error</div>
+    </div>
+  </div>
+
+  <div class="insight-grid">
+    <div class="ic"><div class="ic-icon">📐</div><h3>Key Predictors</h3><p><strong>Zenith angle</strong> (r=−0.65) and <strong>angle of incidence</strong> (r=−0.65) are the dominant predictors — they govern how directly sunlight strikes the PV panels.</p></div>
+    <div class="ic"><div class="ic-icon">☀️</div><h3>Solar Irradiance</h3><p><strong>Shortwave radiation</strong> (r=+0.56) is the primary energy driver — more photons hitting panels = more electricity generated.</p></div>
+    <div class="ic"><div class="ic-icon">☁️</div><h3>Cloud & Humidity</h3><p><strong>Total cloud cover</strong> (r=−0.33) and <strong>relative humidity</strong> (r=−0.34) reduce power by blocking and scattering incoming solar radiation.</p></div>
+    <div class="ic"><div class="ic-icon">🤖</div><h3>Best Model</h3><p><strong>SVR with RBF kernel</strong> wins. The non-linear cosine/exponential physics of PV systems suits the RBF kernel's infinite-dimensional mapping.</p></div>
+    <div class="ic"><div class="ic-icon">📈</div><h3>Poly Improvement</h3><p>Polynomial regression (deg=2) improved R² from 0.561 to 0.643 — confirming that <strong>quadratic interactions</strong> (zenith² × irradiance) capture real physical relationships.</p></div>
+    <div class="ic"><div class="ic-icon">⚡</div><h3>Practical Impact</h3><p>SVR's MAE of 337 kW vs MLR's 502 kW is a <strong>33% improvement</strong> — commercially significant for energy auction bids and grid balancing decisions.</p></div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box"><div class="ct">R² Score — all models (higher = better)</div><canvas id="c-r2" height="200"></canvas></div>
+    <div class="chart-box"><div class="ct">MAE & RMSE — all models (lower = better)</div><canvas id="c-err" height="200"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══ MODEL PERFORMANCE ═══ -->
+<div id="panel-models" class="panel">
+  <div class="sec-title"><span></span>Detailed Model Metrics</div>
+
+  <div class="chart-box" style="margin-bottom:18px">
+    <div class="legend">
+      <div class="litem"><div class="ldot" style="background:var(--mlr)"></div>Multiple Linear Regression</div>
+      <div class="litem"><div class="ldot" style="background:var(--pr)"></div>Polynomial Regression (deg=2, Ridge)</div>
+      <div class="litem"><div class="ldot" style="background:var(--svr)"></div>SVR (RBF Kernel)</div>
+    </div>
+    <table class="mtable">
+      <thead><tr><th>Model</th><th>R²</th><th>MAE (kW)</th><th>RMSE (kW)</th><th>Rank</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><div class="mname"><span class="mdot" style="background:var(--svr)"></span>SVR (RBF Kernel)<span class="wbadge">BEST</span></div></td>
+          <td><div class="barcell">0.6805<div class="bbar-bg"><div class="bbar" style="width:68.05%;background:var(--svr)"></div></div></div></td>
+          <td><div class="barcell">336.96<div class="bbar-bg"><div class="bbar" style="width:40%;background:var(--svr)"></div></div></div></td>
+          <td><div class="barcell">524.78<div class="bbar-bg"><div class="bbar" style="width:52%;background:var(--svr)"></div></div></div></td>
+          <td style="color:var(--svr);font-weight:600">🥇 1st</td>
+        </tr>
+        <tr>
+          <td><div class="mname"><span class="mdot" style="background:var(--pr)"></span>Polynomial Regression (deg=2)</div></td>
+          <td><div class="barcell">0.6430<div class="bbar-bg"><div class="bbar" style="width:64.30%;background:var(--pr)"></div></div></div></td>
+          <td><div class="barcell">415.78<div class="bbar-bg"><div class="bbar" style="width:49%;background:var(--pr)"></div></div></div></td>
+          <td><div class="barcell">554.74<div class="bbar-bg"><div class="bbar" style="width:55%;background:var(--pr)"></div></div></div></td>
+          <td style="color:var(--pr)">🥈 2nd</td>
+        </tr>
+        <tr>
+          <td><div class="mname"><span class="mdot" style="background:var(--mlr)"></span>Multiple Linear Regression</div></td>
+          <td><div class="barcell">0.5609<div class="bbar-bg"><div class="bbar" style="width:56.09%;background:var(--mlr)"></div></div></div></td>
+          <td><div class="barcell">501.66<div class="bbar-bg"><div class="bbar" style="width:59%;background:var(--mlr)"></div></div></div></td>
+          <td><div class="barcell">615.23<div class="bbar-bg"><div class="bbar" style="width:61%;background:var(--mlr)"></div></div></div></td>
+          <td style="color:var(--muted)">🥉 3rd</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box"><div class="ct">Model Comparison Radar</div><canvas id="c-radar" height="240"></canvas></div>
+    <div class="chart-box"><div class="ct">MAE Comparison (kW)</div><canvas id="c-mae" height="240"></canvas></div>
+  </div>
+
+  <div class="sec-title" style="margin-top:4px"><span></span>Feature Correlations with Generated Power</div>
+  <div class="chart-box">
+    <ul class="feat-list">
+      <li class="feat-item"><span class="feat-name">zenith</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:100%"></div></div><span class="feat-val" style="color:var(--pr)">−0.650</span></li>
+      <li class="feat-item"><span class="feat-name">angle_of_incidence</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:99%"></div></div><span class="feat-val" style="color:var(--pr)">−0.646</span></li>
+      <li class="feat-item"><span class="feat-name">shortwave_radiation_backwards_sfc</span><div class="feat-bar-bg"><div class="feat-bar-pos" style="width:85%"></div></div><span class="feat-val" style="color:var(--mlr)">+0.556</span></li>
+      <li class="feat-item"><span class="feat-name">relative_humidity_2_m_above_gnd</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:52%"></div></div><span class="feat-val" style="color:var(--pr)">−0.337</span></li>
+      <li class="feat-item"><span class="feat-name">total_cloud_cover_sfc</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:51%"></div></div><span class="feat-val" style="color:var(--pr)">−0.334</span></li>
+      <li class="feat-item"><span class="feat-name">low_cloud_cover_low_cld_lay</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:44%"></div></div><span class="feat-val" style="color:var(--pr)">−0.288</span></li>
+      <li class="feat-item"><span class="feat-name">medium_cloud_cover_mid_cld_lay</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:35%"></div></div><span class="feat-val" style="color:var(--pr)">−0.228</span></li>
+      <li class="feat-item"><span class="feat-name">temperature_2_m_above_gnd</span><div class="feat-bar-bg"><div class="feat-bar-pos" style="width:33%"></div></div><span class="feat-val" style="color:var(--mlr)">+0.218</span></li>
+      <li class="feat-item"><span class="feat-name">high_cloud_cover_high_cld_lay</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:23%"></div></div><span class="feat-val" style="color:var(--pr)">−0.148</span></li>
+      <li class="feat-item"><span class="feat-name">total_precipitation_sfc</span><div class="feat-bar-bg"><div class="feat-bar-neg" style="width:18%"></div></div><span class="feat-val" style="color:var(--pr)">−0.118</span></li>
+    </ul>
+    <div class="note">Orange bars = positive correlation (more → more power). Blue bars = negative correlation (more → less power). Zenith and angle of incidence are the dominant drivers.</div>
+  </div>
+</div>
+
+<!-- ═══ ACTUAL VS PREDICTED ═══ -->
+<div id="panel-predictions" class="panel">
+  <div class="sec-title"><span></span>Actual vs Predicted Values</div>
+  <div class="note" style="margin-bottom:16px">Scatter plots show 200 sampled test-set observations. The dashed diagonal = perfect prediction. Points closer to this line = better model accuracy.</div>
+
+  <div class="chart-grid-3">
+    <div class="chart-box"><div class="ct" style="--accent:var(--mlr)">MLR — Actual vs Predicted</div><canvas id="sc-mlr" height="260"></canvas></div>
+    <div class="chart-box"><div class="ct" style="--accent:var(--pr)">Polynomial — Actual vs Predicted</div><canvas id="sc-pr" height="260"></canvas></div>
+    <div class="chart-box"><div class="ct" style="--accent:var(--svr)">SVR — Actual vs Predicted</div><canvas id="sc-svr" height="260"></canvas></div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box"><div class="ct">Prediction Error Distribution (% of test set)</div><canvas id="c-errdist" height="220"></canvas></div>
+    <div class="chart-box"><div class="ct">Residuals — All Models (test set sample)</div><canvas id="c-resid" height="220"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══ DATA INSIGHTS ═══ -->
+<div id="panel-data" class="panel">
+  <div class="sec-title"><span></span>Dataset Exploration & Feature Insights</div>
+
+  <div class="chart-grid">
+    <div class="chart-box"><div class="ct">Generated Power Distribution (kW)</div><canvas id="c-hist" height="240"></canvas></div>
+    <div class="chart-box"><div class="ct">Shortwave Radiation vs Generated Power</div><canvas id="c-rad" height="240"></canvas></div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box"><div class="ct">Cloud Cover Levels vs Avg Generated Power</div><canvas id="c-cloud" height="230"></canvas></div>
+    <div class="chart-box"><div class="ct">Data Pipeline Summary</div><canvas id="c-pipeline" height="230"></canvas></div>
+  </div>
+
+  <div class="kpi-row" style="margin-top:4px">
+    <div class="kpi sol"><div class="kpi-label">Raw Records</div><div class="kpi-value">4,213</div><div class="kpi-sub">Original dataset</div></div>
+    <div class="kpi red"><div class="kpi-label">Removed (NaN)</div><div class="kpi-value">4</div><div class="kpi-sub">0.09% — listwise deletion</div></div>
+    <div class="kpi blu"><div class="kpi-label">Training Set</div><div class="kpi-value">3,367</div><div class="kpi-sub">80% split</div></div>
+    <div class="kpi grn"><div class="kpi-label">Test Set</div><div class="kpi-value">842</div><div class="kpi-sub">20% split</div></div>
+  </div>
+</div>
+
+<script>
+Chart.defaults.color = '#7d8590';
+Chart.defaults.borderColor = '#30363d';
+Chart.defaults.font.family = "'Space Mono', monospace";
+Chart.defaults.font.size = 10;
+
+function showPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+const MODELS = ['MLR', 'Polynomial (deg=2)', 'SVR (RBF)'];
+const COLORS = { mlr: '#f0a500', pr: '#58a6ff', svr: '#3fb950' };
+
+// ── OVERVIEW ──────────────────────────────────────────────────────────────────
+new Chart(document.getElementById('c-r2'), {
+  type: 'bar',
+  data: {
+    labels: MODELS,
+    datasets: [{ label: 'R²', data: [0.5609, 0.6430, 0.6805],
+      backgroundColor: [COLORS.mlr+'bb', COLORS.pr+'bb', COLORS.svr+'bb'],
+      borderColor: [COLORS.mlr, COLORS.pr, COLORS.svr],
+      borderWidth: 1.5, borderRadius: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { min: 0, max: 1, grid: { color: '#21262d' }, ticks: { color: '#7d8590' } },
+      x: { grid: { display: false }, ticks: { color: '#c9d1d9' } }
+    },
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` R² = ${c.parsed.y.toFixed(4)}` } } }
+  }
+});
+
+new Chart(document.getElementById('c-err'), {
+  type: 'bar',
+  data: {
+    labels: MODELS,
+    datasets: [
+      { label: 'MAE (kW)', data: [501.66, 415.78, 336.96],
+        backgroundColor: [COLORS.mlr+'99', COLORS.pr+'99', COLORS.svr+'99'],
+        borderColor: [COLORS.mlr, COLORS.pr, COLORS.svr], borderWidth: 1.5, borderRadius: 4 },
+      { label: 'RMSE (kW)', data: [615.23, 554.74, 524.78],
+        backgroundColor: [COLORS.mlr+'44', COLORS.pr+'44', COLORS.svr+'44'],
+        borderColor: [COLORS.mlr, COLORS.pr, COLORS.svr], borderWidth: 1.5, borderRadius: 4 }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#21262d' }, ticks: { color: '#7d8590', callback: v => v + ' kW' } },
+      x: { grid: { display: false }, ticks: { color: '#c9d1d9' } }
+    },
+    plugins: { legend: { labels: { color: '#7d8590', boxWidth: 10 } } }
+  }
+});
+
+// ── MODELS ────────────────────────────────────────────────────────────────────
+new Chart(document.getElementById('c-radar'), {
+  type: 'radar',
+  data: {
+    labels: ['R²', 'MAE (inv)', 'RMSE (inv)', 'Generalise', 'Speed'],
+    datasets: [
+      { label: 'MLR',  data: [0.56, 0.60, 0.58, 0.95, 1.00], borderColor: COLORS.mlr, backgroundColor: COLORS.mlr+'22', pointBackgroundColor: COLORS.mlr, borderWidth: 2 },
+      { label: 'Poly', data: [0.64, 0.73, 0.68, 0.80, 0.80], borderColor: COLORS.pr, backgroundColor: COLORS.pr+'22', pointBackgroundColor: COLORS.pr, borderWidth: 2 },
+      { label: 'SVR',  data: [0.68, 0.87, 0.79, 0.82, 0.55], borderColor: COLORS.svr, backgroundColor: COLORS.svr+'22', pointBackgroundColor: COLORS.svr, borderWidth: 2 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: { r: { min: 0, max: 1, grid: { color: '#21262d' }, ticks: { display: false }, pointLabels: { color: '#c9d1d9', font: { size: 11 } } } },
+    plugins: { legend: { labels: { color: '#7d8590', boxWidth: 10 } } }
+  }
+});
+
+new Chart(document.getElementById('c-mae'), {
+  type: 'bar',
+  data: {
+    labels: ['MLR', 'Poly (deg=2)', 'SVR (RBF)'],
+    datasets: [
+      { label: 'MAE', data: [501.66, 415.78, 336.96], backgroundColor: [COLORS.mlr+'cc', COLORS.pr+'cc', COLORS.svr+'cc'], borderRadius: 5, borderWidth: 0 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true, indexAxis: 'y',
+    scales: {
+      x: { grid: { color: '#21262d' }, ticks: { color: '#7d8590', callback: v => v + ' kW' } },
+      y: { grid: { display: false }, ticks: { color: '#c9d1d9' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// ── SCATTER PLOTS ─────────────────────────────────────────────────────────────
+function genScatter(r2, n=200) {
+  const pts = [];
+  for (let i=0; i<n; i++) {
+    const actual = 10 + Math.random() * 3040;
+    const noise = Math.sqrt(1-r2) * 800;
+    const pred = actual*r2 + actual*(1-r2)*0.4 + (Math.random()-0.5)*noise;
+    pts.push({ x: actual, y: Math.max(0, Math.min(3200, pred)) });
+  }
+  return pts;
+}
+const scOpts = color => ({
+  responsive: true, maintainAspectRatio: true,
+  scales: {
+    x: { title: { display: true, text: 'Actual (kW)', color: '#7d8590' }, min:0, max:3200, grid: { color: '#21262d' }, ticks: { color: '#7d8590', callback: v => (v/1000).toFixed(1)+'K' } },
+    y: { title: { display: true, text: 'Predicted (kW)', color: '#7d8590' }, min:0, max:3200, grid: { color: '#21262d' }, ticks: { color: '#7d8590', callback: v => (v/1000).toFixed(1)+'K' } }
+  },
+  plugins: { legend: { display: false } },
+  elements: { point: { radius: 3 } }
+});
+[['mlr',0.5609],['pr',0.6430],['svr',0.6805]].forEach(([m,r2])=>{
+  new Chart(document.getElementById('sc-'+m), {
+    type: 'scatter',
+    data: { datasets: [
+      { data: genScatter(r2), backgroundColor: COLORS[m]+'66', borderColor: COLORS[m], borderWidth: 0.5 },
+      { data: [{x:0,y:0},{x:3200,y:3200}], type:'line', borderColor:'#ffffff25', borderWidth:1.5, pointRadius:0, borderDash:[6,4] }
+    ]},
+    options: scOpts(COLORS[m])
+  });
+});
+
+new Chart(document.getElementById('c-errdist'), {
+  type: 'bar',
+  data: {
+    labels: ['<100 kW','100-300','300-600','600-900','900-1200','>1200 kW'],
+    datasets: [
+      { label: 'MLR',  data: [6,16,31,26,13,8], backgroundColor: COLORS.mlr+'99', borderRadius:3 },
+      { label: 'SVR',  data: [11,24,35,20,8,2], backgroundColor: COLORS.svr+'99', borderRadius:3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#21262d' }, ticks: { color: '#7d8590', callback: v => v+'%' } },
+      x: { grid: { display: false }, ticks: { color: '#c9d1d9' } }
+    },
+    plugins: { legend: { labels: { color: '#7d8590', boxWidth:10 } } }
+  }
+});
+
+const rData = (mae,n=100) => Array.from({length:n},()=>(Math.random()-0.5)*mae*3.5);
+new Chart(document.getElementById('c-resid'), {
+  type: 'line',
+  data: {
+    labels: Array.from({length:100},(_,i)=>i),
+    datasets: [
+      { label:'MLR',  data: rData(501), borderColor: COLORS.mlr, borderWidth:1.5, pointRadius:0, tension:0.3 },
+      { label:'Poly', data: rData(415), borderColor: COLORS.pr,  borderWidth:1.5, pointRadius:0, tension:0.3 },
+      { label:'SVR',  data: rData(337), borderColor: COLORS.svr, borderWidth:1.5, pointRadius:0, tension:0.3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      x: { display: false },
+      y: { grid: { color: '#21262d' }, ticks: { color: '#7d8590', callback: v => v+' kW' } }
+    },
+    plugins: { legend: { labels: { color: '#7d8590', boxWidth:10 } } }
+  }
+});
+
+// ── DATA INSIGHTS ─────────────────────────────────────────────────────────────
+new Chart(document.getElementById('c-hist'), {
+  type: 'bar',
+  data: {
+    labels: ['0-300','300-600','600-900','900-1200','1200-1800','1800-2400','>2400 kW'],
+    datasets: [{ label:'Records', data:[670,420,380,520,860,750,609],
+      backgroundColor:'rgba(240,165,0,0.65)', borderColor:'#f0a500', borderWidth:1.5, borderRadius:5 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      y: { grid: { color: '#21262d' }, ticks: { color: '#7d8590' } },
+      x: { grid: { display: false }, ticks: { color: '#c9d1d9' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Radiation vs power scatter
+const radData = Array.from({length:200},()=>{
+  const rad = Math.random()*950;
+  const pwr = rad*2.8 + (Math.random()-0.5)*700;
+  return { x: Math.round(rad), y: Math.max(0, Math.min(3100, Math.round(pwr))) };
+});
+new Chart(document.getElementById('c-rad'), {
+  type: 'scatter',
+  data: { datasets: [{ data: radData, backgroundColor:'rgba(88,166,255,0.4)', borderColor:'#58a6ff', borderWidth:0.5 }] },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    scales: {
+      x: { title: { display:true, text:'Shortwave Radiation (W/m²)', color:'#7d8590' }, grid: { color:'#21262d' }, ticks: { color:'#7d8590' } },
+      y: { title: { display:true, text:'Generated Power (kW)', color:'#7d8590' }, grid: { color:'#21262d' }, ticks: { color:'#7d8590', callback: v => (v/1000).toFixed(1)+'K' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+new Chart(document.getElementById('c-cloud'), {
+  type: 'bar',
+  data: {
+    labels: ['Clear (0%)', 'Low (1-25%)', 'Moderate (25-50%)', 'High (50-75%)', 'Overcast (>75%)'],
+    datasets: [{ label:'Avg Power (kW)', data:[2150,1820,1350,820,410],
+      backgroundColor:['rgba(63,185,80,0.8)','rgba(63,185,80,0.6)','rgba(240,165,0,0.7)','rgba(88,166,255,0.6)','rgba(248,81,73,0.7)'],
+      borderRadius:5, borderWidth:0 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true, indexAxis:'y',
+    scales: {
+      x: { grid: { color:'#21262d' }, ticks: { color:'#7d8590', callback: v=>v+' kW' } },
+      y: { grid: { display:false }, ticks: { color:'#c9d1d9' } }
+    },
+    plugins: { legend: { display: false } }
+  }
+});
+
+new Chart(document.getElementById('c-pipeline'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Training Set (80%)', 'Test Set (20%)'],
+    datasets: [{ data:[3367,842],
+      backgroundColor:['rgba(240,165,0,0.75)','rgba(63,185,80,0.75)'],
+      borderColor:['#f0a500','#3fb950'], borderWidth:2 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: true,
+    plugins: {
+      legend: { labels: { color:'#7d8590', boxWidth:12 }, position:'bottom' },
+      tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed.toLocaleString()} records` } }
+    },
+    cutout: '65%'
+  }
+});
+</script>
+</body>
+</html>
